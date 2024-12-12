@@ -20,7 +20,7 @@ def main():
     num_epochs = 5
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     dataframe = pd.read_csv(data_path)
-    dataset = TrustDataset(dataframe, tokenizer)
+    dataset = TrustDataset(dataframe, tokenizer, blind_setting=True)
     
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
     #device = torch.device("cpu")
