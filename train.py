@@ -11,20 +11,21 @@ from torch.optim import AdamW
 from data.trust_dataset import *
 from torch.utils.data import DataLoader, random_split
 from model import *
+import matplotlib.pyplot as plt
 
 def main():
     curr_dir = os.getcwd()
     print(curr_dir)
     data_path = os.path.join(curr_dir, "data/clean_newslens_data.csv")
     model_name = "bert-base-uncased"
-    num_epochs = 5
+    num_epochs = 2
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     dataframe = pd.read_csv(data_path)
     dataset = TrustDataset(dataframe, tokenizer, blind_setting=True)
     
-    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+    #device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     #device = torch.device("cpu")
-    print(device)
     
     train_size = int(0.8 * len(dataset))
     val_size = int(0.1 * len(dataset))
@@ -54,25 +55,43 @@ def main():
     model.to(device)
     optimizer = AdamW(model.parameters(), lr=1e-5)
     criterion = nn.MSELoss()
-
+    
+    step_losses = []
+    step_count = 0
+    
     for epoch in range(num_epochs):
-        for _, batch in enumerate(tqdm(train_dataloader)):
+        epoch_loss = 0
+        for step, batch in enumerate(tqdm(train_dataloader)):
         
             tokenized = batch["tokenized"]
             input_ids, attention_mask = tokenized["input_ids"], tokenized["attention_mask"]
             input_ids = input_ids.squeeze(1).to(device)
-            print(input_ids.dtype)
-            print(attention_mask.dtype)
-            print(batch["label"].dtype)
+
             attention_mask = attention_mask.squeeze(1).to(device)
             labels = batch["label"].to(device)
             
             optimizer.zero_grad()
             output = model({"input_ids": input_ids, "attention_mask": attention_mask}).squeeze(-1)
-
+            
             loss = criterion(output, labels)
+            epoch_loss += loss
             loss.backward()
             optimizer.step()
+            
+            if step % 100 == 0:
+                step_losses.append(loss.item())
+                step_count += 1
+            
+        print(f"Epoch {epoch} Loss is: {epoch_loss/len(train_dataloader)}")
+        
+        
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(step_count), step_losses, label='Step Loss')
+    plt.xlabel('Step (every 100 steps)')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Over Time')
+    plt.legend()
+    plt.savefig('training_loss.png')
             
 
 
