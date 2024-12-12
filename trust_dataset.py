@@ -4,10 +4,12 @@ from torch.utils.data import Dataset
 import numpy as np
 
 class TrustDataset(Dataset):
-    def __init__(self, dataframe, tokenizer):
+    def __init__(self, dataframe, tokenizer, blind_setting=False):
         super(TrustDataset, self).__init__()
         self.tokenizer = tokenizer
-        self.df = dataframe
+        self.blind = blind_setting
+        self.df = dataframe if not blind_setting else dataframe[(dataframe["channel_id"] == 1) | (dataframe["channel_id"] == 3)]
+        
 
     def __getitem__(self, idx):
         label = self.df.rating_scale_response.iloc[idx].astype(np.float32)
